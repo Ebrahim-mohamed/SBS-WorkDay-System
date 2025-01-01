@@ -1,0 +1,1 @@
+export const apii = 'http://150.230.55.173:7070/';
