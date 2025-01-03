@@ -1,21 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { IoIosNotifications } from 'react-icons/io';
 import { IoMenu, IoPersonCircle } from 'react-icons/io5';
 import { useSelector, useDispatch } from 'react-redux';
-import { MdDarkMode } from 'react-icons/md'; // Dark mode icon
+import { MdDarkMode } from 'react-icons/md';
 import { selectUserName, selectIsManager } from '../redux/authSlice';
+import { logout } from '../redux/authSlice';
 import logo from '../assets/logo.svg';
-import { logout } from '../redux/authSlice'; // Import logout action
 
 const Header = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useDispatch();
-  const [showNotifications, setShowNotifications] = useState(false);
+  const [activeDropdown, setActiveDropdown] = useState(null);
   const [showMenu, setShowMenu] = useState(false);
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(false); // Dark mode state
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const dropdownRef = useRef(null);
 
   const userName = useSelector(selectUserName);
   const isManager = useSelector(selectIsManager);
@@ -25,29 +25,26 @@ const Header = () => {
     window.location.href = '/login';
   };
 
-  const toggleNotifications = () => setShowNotifications((prev) => !prev);
-  const toggleMenu = () => setShowMenu((prev) => !prev);
-  const toggleProfileMenu = () => setShowProfileMenu((prev) => !prev);
-
-  const getButtonClass = (path) =>
-    location.pathname === path
-      ? 'text-custom-blue uppercase font-bold'
-      : 'text-gray-600 uppercase font-bold';
-
-  const toggleDarkMode = () => {
-    const newDarkMode = !isDarkMode;
-    setIsDarkMode(newDarkMode);
-    localStorage.setItem('darkMode', newDarkMode ? 'true' : 'false');
+  const toggleDropdown = (menu) => {
+    setActiveDropdown(activeDropdown === menu ? null : menu);
   };
 
   useEffect(() => {
-    // On initial load, check localStorage for dark mode preference
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setActiveDropdown(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
     const storedDarkMode = localStorage.getItem('darkMode');
     setIsDarkMode(storedDarkMode === 'true');
   }, []);
 
   useEffect(() => {
-    // Apply or remove the 'dark' class from the body based on isDarkMode
     if (isDarkMode) {
       document.body.classList.add('dark');
     } else {
@@ -55,164 +52,152 @@ const Header = () => {
     }
   }, [isDarkMode]);
 
+  const navItems = [
+    isManager && { path: '/dashboard', label: 'Dashboard' },
+    { path: '/task-form', label: 'Task Form' },
+    { path: '/time-sheet', label: 'Time Sheet' }
+  ].filter(Boolean);
+
+  const isActive = (path) => location.pathname === path;
+
   return (
-    <header className="bg-gray-100 dark:bg-black text-black dark:text-white p-4 flex items-center relative">
-      <img src={logo} alt="logo" className="h-8" />
+    <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between h-16 items-center">
+          <div className="flex items-center">
+            <img src={logo} alt="logo" className="h-8 w-auto" />
+            
+            <nav className="hidden md:ml-8 md:flex md:space-x-8">
+              {navItems.map((item) => (
+                <button
+                  key={item.path}
+                  onClick={() => navigate(item.path)}
+                  className={`
+                    px-3 py-2 rounded-md text-sm font-medium transition-all duration-200
+                    ${isActive(item.path)
+                      ? 'text-custom-blue bg-blue-50 dark:bg-gray-800'
+                      : 'text-gray-600 dark:text-gray-300 hover:text-custom-blue hover:bg-gray-50 dark:hover:bg-gray-800'}
+                  `}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </nav>
+          </div>
 
-      {/* Navigation Links */}
-      <div className="flex space-x-6 ml-6 hidden md:flex">
-        {isManager && (
-          <button
-            onClick={() => navigate('/dashboard')}
-            className={getButtonClass('/dashboard')}
-          >
-            Dashboard
-          </button>
-        )}
-        <button
-          onClick={() => navigate('/task-form')}
-          className={getButtonClass('/task-form')}
-        >
-          Task Form
-        </button>
-        <button
-          onClick={() => navigate('/time-sheet')}
-          className={getButtonClass('/time-sheet')}
-        >
-          Time Sheet
-        </button>
-      </div>
+          <div className="flex items-center space-x-4" ref={dropdownRef}>
+            <button
+              onClick={() => toggleDropdown('notifications')}
+              className="relative p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200"
+            >
+              <IoIosNotifications
+                size={24}
+                className={`${activeDropdown === 'notifications' ? 'text-custom-blue' : 'text-gray-600 dark:text-gray-300'}`}
+              />
+              
+              {activeDropdown === 'notifications' && (
+                <div className="absolute right-0 mt-3 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-2 z-50">
+                  <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
+                    <h3 className="font-semibold text-gray-900 dark:text-white">Notifications</h3>
+                  </div>
+                  <div className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300">
+                    No new notifications
+                  </div>
+                </div>
+              )}
+            </button>
 
-      {/* Right Section */}
-      <div className="ml-auto flex items-center space-x-4">
-      <button
-  onClick={toggleNotifications}
-  className="text-gray-600 hover:text-custom-blue relative"
->
-  {/* Change icon color to custom-blue if notifications are visible, else apply default color */}
-  <IoIosNotifications 
-    size={24} 
-    className={`${showNotifications ? 'text-custom-blue' : 'text-gray-600'} 
-                hover:text-custom-blue transition-all`}
-  />
-  
-  {showNotifications && (
-    <div className="absolute top-10 right-0 w-64 bg-white shadow-md rounded-md p-4 dark:bg-gray-800">
-      <h4 className="font-semibold text-lg mb-2 text-black dark:text-white">Notifications</h4>
-      <ul>
-        <li className="mb-1 text-sm text-gray-700 dark:text-gray-300">
-          No new notifications.
-        </li>
-      </ul>
-    </div>
-  )}
-</button>
-
-
-        {/* Dark Mode Toggle Icon */}
-        <button
-          onClick={toggleDarkMode}
-          className="text-gray-600 hover:text-custom-blue"
-        >
-          <MdDarkMode
-            size={24}
-            className={isDarkMode ? 'text-custom-blue' : 'text-gray-600'}
-          />
-        </button>
-
-        {/* Profile Icon */}
-        <div className="hidden md:block">
-  <button
-    onClick={toggleProfileMenu}
-    className="text-gray-600 hover:text-custom-blue relative"
-  >
-    {/* Change icon color to custom-blue when profile menu is open */}
-    <IoPersonCircle 
-      size={24} 
-      className={`${showProfileMenu ? 'text-custom-blue' : 'text-gray-600'} 
-                  hover:text-custom-blue transition-all`}
-    />
-    
-    {showProfileMenu && (
-      <div className="absolute top-10 right-0 w-64 bg-white shadow-md rounded-md p-4 dark:bg-gray-800">
-        <ul>
-          <li
-            onClick={() => {
-              navigate('/profile');
-              setShowProfileMenu(false);
-            }}
-            className="mb-1 text-lg text-gray-700 cursor-pointer hover:text-custom-blue dark:text-gray-300"
-          >
-            View Profile
-          </li>
-          <li
-            onClick={handleLogout}
-            className="mb-1 text-lg text-gray-700 cursor-pointer text-red-500 hover:text-red-700 dark:text-gray-300"
-          >
-            Logout
-          </li>
-        </ul>
-      </div>
-    )}
-  </button>
-</div>
-
-        {/* Mobile Menu Icon */}
-        <button
-          onClick={toggleMenu}
-          className="text-gray-600 hover:text-custom-blue md:hidden"
-        >
-          <IoMenu size={24} />
-        </button>
-      </div>
-
-      {/* Mobile Menu Dropdown */}
-      {showMenu && (
-        <div className="absolute top-full left-0 w-full bg-white shadow-md z-10 flex flex-col items-start p-4 space-y-4 md:hidden">
-          {isManager && (
             <button
               onClick={() => {
-                setShowMenu(false);
-                navigate('/dashboard');
+                setIsDarkMode(!isDarkMode);
+                localStorage.setItem('darkMode', (!isDarkMode).toString());
               }}
-              className="text-gray-700 text-lg"
+              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200"
             >
-              Dashboard
+              <MdDarkMode
+                size={24}
+                className={isDarkMode ? 'text-custom-blue' : 'text-gray-600 dark:text-gray-300'}
+              />
             </button>
-          )}
-          <button
-            onClick={() => {
-              setShowMenu(false);
-              navigate('/task-form');
-            }}
-            className="text-gray-700 text-lg"
-          >
-            Task Form
-          </button>
-          <button
-            onClick={() => {
-              setShowMenu(false);
-              navigate('/time-sheet');
-            }}
-            className="text-gray-700 text-lg"
-          >
-            Time Sheet
-          </button>
-          <button
-            onClick={() => {
-              navigate('/profile');
-              setShowMenu(false);
-            }}
-            className="text-gray-700 text-lg"
-          >
-            View Profile
-          </button>
-          <button
-            onClick={handleLogout}
-            className="text-gray-700 text-lg bg-red-500 hover:bg-red-700 text-white py-2 px-4 rounded w-full text-center"
-          >
-            Logout
-          </button>
+
+            <div className="hidden md:block relative">
+              <button
+                onClick={() => toggleDropdown('profile')}
+                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200"
+              >
+                <IoPersonCircle
+                  size={24}
+                  className={`${activeDropdown === 'profile' ? 'text-custom-blue' : 'text-gray-600 dark:text-gray-300'}`}
+                />
+              </button>
+
+              {activeDropdown === 'profile' && (
+                <div className="absolute right-0 mt-3 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-2 z-50">
+                  <button
+                    onClick={() => {
+                      navigate('/profile');
+                      setActiveDropdown(null);
+                    }}
+                    className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    View Profile
+                  </button>
+                  <button
+                    onClick={handleLogout}
+                    className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                  >
+                    Logout
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={() => setShowMenu(!showMenu)}
+              className="md:hidden p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200"
+            >
+              <IoMenu size={24} className="text-gray-600 dark:text-gray-300" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {showMenu && (
+        <div className="md:hidden border-t border-gray-200 dark:border-gray-700">
+          <div className="px-2 pt-2 pb-3 space-y-1">
+            {navItems.map((item) => (
+              <button
+                key={item.path}
+                onClick={() => {
+                  navigate(item.path);
+                  setShowMenu(false);
+                }}
+                className={`
+                  w-full text-left px-3 py-2 rounded-md text-base font-medium
+                  ${isActive(item.path)
+                    ? 'text-custom-blue bg-blue-50 dark:bg-gray-800'
+                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'}
+                `}
+              >
+                {item.label}
+              </button>
+            ))}
+            <button
+              onClick={() => {
+                navigate('/profile');
+                setShowMenu(false);
+              }}
+              className="w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+            >
+              View Profile
+            </button>
+            <button
+              onClick={handleLogout}
+              className="w-full text-left px-3 py-2 rounded-md text-base font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+            >
+              Logout
+            </button>
+          </div>
         </div>
       )}
     </header>
