@@ -29,7 +29,6 @@ export const TaskForm = ({ userRole }) => {
     taskOptions: []
   })));
   
-  // Initialize date from location state or current date
   const [date, setDate] = useState(
     location.state?.selectedDate || new Date().toISOString().slice(0, 10)
   );
@@ -38,20 +37,24 @@ export const TaskForm = ({ userRole }) => {
   const [activeRow, setActiveRow] = useState(null);
   const [notification, setNotification] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [bulkAssign, setBulkAssign] = useState({
+    project: "",
+    task: "",
+    details: "",
+    taskOptions: []
+  });
 
   const completionPercentage =
     (tasksForm.filter((task) => task.project && task.task).length / tasksForm.length) * 100;
 
   const allRowsComplete = tasksForm.every((task) => task.project && task.task);
 
-  // Fetch initial data
   useEffect(() => {
     const initializeForm = async () => {
       setIsLoading(true);
       try {
         await dispatch(fetchProjects());
         
-        // If we're editing an existing day, fetch its data
         if (location.state?.selectedDate) {
           const response = await fetch(`/api/tasks/${location.state.selectedDate}`, {
             headers: {
@@ -69,7 +72,6 @@ export const TaskForm = ({ userRole }) => {
                 taskOptions: []
               })));
               
-              // Fetch task options for each project
               for (const task of data.tasks) {
                 if (task.project) {
                   const tasksAction = await dispatch(fetchTasks(task.project));
@@ -96,6 +98,58 @@ export const TaskForm = ({ userRole }) => {
 
     initializeForm();
   }, [dispatch, location.state?.selectedDate]);
+
+  const handleBulkAssign = () => {
+    if (bulkAssign.project && bulkAssign.task) {
+      setTasksForm(prevTasks => 
+        prevTasks.map(task => ({
+          project: bulkAssign.project,
+          task: bulkAssign.task,
+          details: bulkAssign.details,
+          taskOptions: bulkAssign.taskOptions
+        }))
+      );
+      setNotification({
+        type: "success",
+        message: "Tasks bulk assigned successfully!"
+      });
+    }
+  };
+
+  const handleBulkProjectChange = async (projectId) => {
+    setBulkAssign(prev => ({
+      ...prev,
+      project: projectId,
+      task: "",
+      taskOptions: []
+    }));
+
+    if (projectId && !projectTasksMap[projectId]) {
+      try {
+        const action = await dispatch(fetchTasks(projectId));
+        if (action.payload) {
+          setProjectTasksMap(prev => ({
+            ...prev,
+            [projectId]: action.payload
+          }));
+          setBulkAssign(prev => ({
+            ...prev,
+            taskOptions: action.payload
+          }));
+        }
+      } catch (error) {
+        setNotification({
+          type: "error",
+          message: "Failed to fetch tasks for selected project"
+        });
+      }
+    } else if (projectId) {
+      setBulkAssign(prev => ({
+        ...prev,
+        taskOptions: projectTasksMap[projectId]
+      }));
+    }
+  };
 
   const handleProjectChange = async (index, projectId) => {
     setTasksForm((prevTasks) =>
@@ -156,7 +210,6 @@ export const TaskForm = ({ userRole }) => {
             : "Day's tasks saved successfully!"
         });
         
-        // Wait for notification to show before navigating
         setTimeout(() => {
           navigate("/time-sheet");
         }, 1500);
@@ -194,7 +247,6 @@ export const TaskForm = ({ userRole }) => {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <Header userRole={userRole} />
       <div className="p-6 max-w-7xl mx-auto">
-        {/* Back Button */}
         <button
           onClick={handleBack}
           className="mb-4 flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400 transition-colors"
@@ -209,7 +261,6 @@ export const TaskForm = ({ userRole }) => {
           </h2>
         </div>
 
-        {/* Completion Percentage */}
         <div className="flex items-center justify-center gap-4 mb-4">
           <div className="w-64 bg-gray-200 rounded-full h-2">
             <div
@@ -222,7 +273,6 @@ export const TaskForm = ({ userRole }) => {
           </span>
         </div>
 
-        {/* Date Selector */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8">
           <label className="flex items-center gap-2 text-gray-700 dark:text-gray-300 font-medium mb-2">
             <IoCalendarOutline className="text-blue-500 dark:text-blue-300" />
@@ -238,7 +288,59 @@ export const TaskForm = ({ userRole }) => {
           />
         </div>
 
-        {/* Hourly Tasks Table */}
+        {/* Bulk Assignment Section */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8">
+          <h3 className="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200">Bulk Assignment</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <select
+              className="p-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-300"
+              value={bulkAssign.project}
+              onChange={(e) => handleBulkProjectChange(e.target.value)}
+            >
+              <option value="">Select Project</option>
+              {projects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.name}
+                </option>
+              ))}
+            </select>
+            
+            <select
+              className="p-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-300"
+              value={bulkAssign.task}
+              onChange={(e) => setBulkAssign(prev => ({ ...prev, task: e.target.value }))}
+              disabled={!bulkAssign.project}
+            >
+              <option value="">Select Task</option>
+              {bulkAssign.taskOptions.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.name}
+                </option>
+              ))}
+            </select>
+            
+            <input
+              type="text"
+              value={bulkAssign.details}
+              onChange={(e) => setBulkAssign(prev => ({ ...prev, details: e.target.value }))}
+              className="p-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-300"
+              placeholder="Enter details for all hours..."
+            />
+          </div>
+          
+          <button
+            onClick={handleBulkAssign}
+            disabled={!bulkAssign.project || !bulkAssign.task}
+            className={`w-full p-2 rounded-md transition-colors ${
+              bulkAssign.project && bulkAssign.task
+                ? "bg-blue-500 hover:bg-blue-600 text-white"
+                : "bg-gray-300 text-gray-500 cursor-not-allowed"
+            }`}
+          >
+            Apply to All Hours
+          </button>
+        </div>
+
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8">
           <h3 className="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200">Hourly Tasks</h3>
           <div className="overflow-x-auto">
