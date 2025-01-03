@@ -214,8 +214,8 @@ export const EmployeeProfile = () => {
                             <td key={hour} className="p-3 border dark:border-gray-600">
                               {hourData ? (
                                 <div className="space-y-1">
-                                  <p className="font-medium">Project: {hourData.projectName}</p>
-                                  <p>Task: {hourData.taskName}</p>
+                                  <p className="font-medium">{hourData.projectName}</p>
+                                  <p>{hourData.taskName}</p>
                                   {hourData.details !== 'null' && (
                                     <p className="text-sm text-gray-600 dark:text-gray-400">
                                       {hourData.details}
