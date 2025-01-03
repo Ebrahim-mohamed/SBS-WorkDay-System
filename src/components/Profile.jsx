@@ -1,32 +1,37 @@
 import React from 'react';
 import { useSelector } from 'react-redux';
 import { selectUserName, selectUserEmail } from '../redux/authSlice';
-import Header from './Header'; // Importing the Header
-import { IoPersonCircle } from "react-icons/io5"; // Profile icon
-import { MdEmail } from "react-icons/md"; // Email icon
-import { FaUser } from "react-icons/fa"; // User icon
+import Header from './Header';
+import { IoPersonCircle } from "react-icons/io5";
+import { MdEmail } from "react-icons/md";
+import { FaUser } from "react-icons/fa";
 
 const Profile = () => {
   const userName = useSelector(selectUserName);
   const userEmail = useSelector(selectUserEmail);
 
+  // Format name to show only capitalized first name
+  const formatName = (fullName) => {
+    const firstName = fullName.split('.')[0];
+    return firstName.charAt(0).toUpperCase() + firstName.slice(1);
+  };
+
+  const displayName = formatName(userName);
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white">
-      <Header /> {/* Including the header */}
+      <Header />
 
-      {/* Profile Page Content */}
       <div className="flex-1 p-6 md:p-12">
         <div className="bg-white dark:bg-gray-800 shadow-lg rounded-xl p-8 max-w-3xl mx-auto hover:shadow-2xl transition-shadow duration-300">
-          {/* Profile Icon */}
           <div className="flex justify-center mb-6">
             <div className="w-40 h-40 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center shadow-md">
               <IoPersonCircle size={140} className="text-white" />
             </div>
           </div>
 
-          {/* Welcome Message */}
           <h1 className="text-3xl font-bold text-center mb-8">
-            Welcome {userName}
+            Welcome {displayName}
           </h1>
 
           <div className="space-y-6">
