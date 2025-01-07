@@ -55,49 +55,92 @@ export const TaskForm = ({ userRole }) => {
       try {
         await dispatch(fetchProjects());
         
-        if (location.state?.selectedDate) {
-          const response = await fetch(`/api/tasks/${location.state.selectedDate}`, {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            },
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
-            if (data && data.tasks) {
-              setTasksForm(data.tasks.map(task => ({
-                project: task.project || "",
-                task: task.task || "",
-                details: task.details || "",
+        // Add console log to check the date
+        console.log("Checking date:", location.state?.selectedDate || date);
+        
+        const response = await fetch(`/api/tasks/${checkDate}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          },
+        });
+        
+        // Add console log to check response
+        console.log("API Response:", response);
+        
+        if (response.ok) {
+          const data = await response.json();
+          // Add console log to check data
+          console.log("Fetched data:", data);
+  
+          // Check if day exists when adding new entry
+          if (data && data.tasks && !location.state?.selectedDate) {
+            console.log("Day exists and not editing");
+            setNotification({
+              type: "error",
+              message: "This day already exists. You can edit it from the timesheet page."
+            });
+            setTimeout(() => {
+              navigate("/time-sheet");
+            }, 2000);
+            return;
+          }
+  
+          // Load existing data for editing
+          if (data && data.tasks) {
+            console.log("Loading existing tasks:", data.tasks);
+            const formattedTasks = Array.from({ length: 8 }, (_, index) => {
+              const existingTask = data.tasks[index] || {};
+              return {
+                project: existingTask.project || "",
+                task: existingTask.task || "",
+                details: existingTask.details || "",
                 taskOptions: []
-              })));
-              
-              for (const task of data.tasks) {
-                if (task.project) {
-                  const tasksAction = await dispatch(fetchTasks(task.project));
-                  if (tasksAction.payload) {
-                    setProjectTasksMap(prev => ({
-                      ...prev,
-                      [task.project]: tasksAction.payload
-                    }));
-                  }
+              };
+            });
+            
+            setTasksForm(formattedTasks);
+            
+            // Load task options for each project
+            for (const task of formattedTasks) {
+              if (task.project) {
+                console.log("Loading tasks for project:", task.project);
+                const tasksAction = await dispatch(fetchTasks(task.project));
+                if (tasksAction.payload) {
+                  setProjectTasksMap(prev => ({
+                    ...prev,
+                    [task.project]: tasksAction.payload
+                  }));
+                  
+                  setTasksForm(prevTasks => 
+                    prevTasks.map(prevTask => 
+                      prevTask.project === task.project 
+                        ? { ...prevTask, taskOptions: tasksAction.payload }
+                        : prevTask
+                    )
+                  );
                 }
               }
             }
           }
+        } else {
+          // Add error logging
+          console.error("Response not OK:", response.status);
+          throw new Error(`API responded with status: ${response.status}`);
         }
       } catch (error) {
+        // Enhanced error logging
+        console.error("Error in initializeForm:", error);
         setNotification({
           type: "error",
-          message: "Failed to load form data. Please try again."
+          message: "Failed to load data. Please try again."
         });
       } finally {
         setIsLoading(false);
       }
     };
-
+  
     initializeForm();
-  }, [dispatch, location.state?.selectedDate]);
+  }, [dispatch, location.state?.selectedDate, date]);
 
   const handleBulkAssign = () => {
     if (bulkAssign.project && bulkAssign.task) {
@@ -217,7 +260,7 @@ export const TaskForm = ({ userRole }) => {
     } catch (error) {
       setNotification({
         type: "error",
-        message: error.message || "Failed to save day's tasks."
+        message: error.message || "You have already entered this day."
       });
     }
   };
