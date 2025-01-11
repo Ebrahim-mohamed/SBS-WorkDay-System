@@ -11,7 +11,7 @@ import {
 } from "react-icons/io5";
 import { fetchProjects } from "../redux/projectsSlice";
 import { fetchTasks } from "../redux/tasksSlice";
-import { postSelectedTasks } from "../redux/sheetSlice";
+import { fetchDayTasks, saveDayTasks, clearCurrentDay } from '../redux/dayTasksSlice';
 import Header from "./Header";
 
 export const TaskForm = ({ userRole }) => {
@@ -19,9 +19,13 @@ export const TaskForm = ({ userRole }) => {
   const navigate = useNavigate();
   const location = useLocation();
   
+  // Redux state
   const { projects } = useSelector((state) => state.projects);
-  const { status, error } = useSelector((state) => state.sheet);
+  const { status: sheetStatus } = useSelector((state) => state.sheet);
+  const currentDayTasks = useSelector((state) => state.dayTasks.tasks);
+  const dayTasksStatus = useSelector((state) => state.dayTasks.status);
   
+  // Local state
   const [tasksForm, setTasksForm] = useState(Array.from({ length: 8 }, () => ({
     project: "",
     task: "",
@@ -55,80 +59,53 @@ export const TaskForm = ({ userRole }) => {
       try {
         await dispatch(fetchProjects());
         
-        // Add console log to check the date
-        console.log("Checking date:", location.state?.selectedDate || date);
-        
-        const response = await fetch(`/api/tasks/${checkDate}`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          },
-        });
-        
-        // Add console log to check response
-        console.log("API Response:", response);
-        
-        if (response.ok) {
-          const data = await response.json();
-          // Add console log to check data
-          console.log("Fetched data:", data);
-  
-          // Check if day exists when adding new entry
-          if (data && data.tasks && !location.state?.selectedDate) {
-            console.log("Day exists and not editing");
-            setNotification({
-              type: "error",
-              message: "This day already exists. You can edit it from the timesheet page."
-            });
-            setTimeout(() => {
-              navigate("/time-sheet");
-            }, 2000);
-            return;
-          }
-  
-          // Load existing data for editing
-          if (data && data.tasks) {
-            console.log("Loading existing tasks:", data.tasks);
-            const formattedTasks = Array.from({ length: 8 }, (_, index) => {
-              const existingTask = data.tasks[index] || {};
-              return {
-                project: existingTask.project || "",
-                task: existingTask.task || "",
-                details: existingTask.details || "",
-                taskOptions: []
-              };
-            });
-            
-            setTasksForm(formattedTasks);
-            
-            // Load task options for each project
-            for (const task of formattedTasks) {
-              if (task.project) {
-                console.log("Loading tasks for project:", task.project);
-                const tasksAction = await dispatch(fetchTasks(task.project));
-                if (tasksAction.payload) {
-                  setProjectTasksMap(prev => ({
-                    ...prev,
-                    [task.project]: tasksAction.payload
-                  }));
-                  
-                  setTasksForm(prevTasks => 
-                    prevTasks.map(prevTask => 
-                      prevTask.project === task.project 
-                        ? { ...prevTask, taskOptions: tasksAction.payload }
-                        : prevTask
-                    )
-                  );
-                }
+        if (location.state?.selectedDate) {
+          const result = await dispatch(fetchDayTasks(location.state.selectedDate)).unwrap();
+          setTasksForm(result.tasks);
+          
+          // Load task options for each project
+          for (const task of result.tasks) {
+            if (task.project) {
+              const tasksAction = await dispatch(fetchTasks(task.project));
+              if (tasksAction.payload) {
+                setProjectTasksMap(prev => ({
+                  ...prev,
+                  [task.project]: tasksAction.payload
+                }));
+                
+                setTasksForm(prevTasks => 
+                  prevTasks.map(prevTask => 
+                    prevTask.project === task.project 
+                      ? { ...prevTask, taskOptions: tasksAction.payload }
+                      : prevTask
+                  )
+                );
               }
             }
           }
         } else {
-          // Add error logging
-          console.error("Response not OK:", response.status);
-          throw new Error(`API responded with status: ${response.status}`);
+          // Check if day exists when adding new entry
+          const response = await fetch(`${apii}api/Sheet/${date}`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            },
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data && data.data) {
+              setNotification({
+                type: "error",
+                message: "This day already exists. You can edit it from the timesheet page."
+              });
+              setTimeout(() => {
+                navigate("/time-sheet");
+              }, 2000);
+              return;
+            }
+          }
         }
       } catch (error) {
-        // Enhanced error logging
         console.error("Error in initializeForm:", error);
         setNotification({
           type: "error",
@@ -138,8 +115,13 @@ export const TaskForm = ({ userRole }) => {
         setIsLoading(false);
       }
     };
-  
+
     initializeForm();
+    
+    // Cleanup when component unmounts
+    return () => {
+      dispatch(clearCurrentDay());
+    };
   }, [dispatch, location.state?.selectedDate, date]);
 
   const handleBulkAssign = () => {
@@ -241,26 +223,26 @@ export const TaskForm = ({ userRole }) => {
   };
 
   const handleSaveDay = async () => {
-    const tasksToPost = [{ date, tasks: tasksForm }];
-    
     try {
-      const result = await dispatch(postSelectedTasks(tasksToPost)).unwrap();
-      if (result) {
-        setNotification({
-          type: "success",
-          message: location.state?.selectedDate 
-            ? "Day's tasks updated successfully!" 
-            : "Day's tasks saved successfully!"
-        });
-        
-        setTimeout(() => {
-          navigate("/time-sheet");
-        }, 1500);
-      }
+      await dispatch(saveDayTasks({
+        date: date,
+        tasks: tasksForm
+      })).unwrap();
+      
+      setNotification({
+        type: "success",
+        message: location.state?.selectedDate 
+          ? "Day's tasks updated successfully!" 
+          : "Day's tasks saved successfully!"
+      });
+      
+      setTimeout(() => {
+        navigate("/time-sheet");
+      }, 1500);
     } catch (error) {
       setNotification({
         type: "error",
-        message: error.message || "You have already entered this day."
+        message: error.message || "Failed to save tasks"
       });
     }
   };

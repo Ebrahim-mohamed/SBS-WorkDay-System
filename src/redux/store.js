@@ -8,6 +8,8 @@ import viewsheetReducer from './viewsheetSlice';
 import statusReducer from './statusSlice';
 import employeeSheetReducer from './employeeSheetSlice';
 import acceptReducer from './acceptSlice'; // Import the acceptSlice reducer
+import dayTasksReducer from './dayTasksSlice';
+
 
 export const store = configureStore({
   reducer: {
@@ -20,6 +22,7 @@ export const store = configureStore({
     status: statusReducer,
     employeeSheet: employeeSheetReducer,
     accept: acceptReducer, // Add the accept reducer
+    dayTasks: dayTasksReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

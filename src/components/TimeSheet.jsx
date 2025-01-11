@@ -71,10 +71,25 @@ export const TimeSheet = ({ userRole }) => {
   };
 
   // Navigate to TaskForm with the selected date
-  const handleEdit = (day) => {
-    dispatch({ type: "viewsheet/setSelectedDate", payload: day });
-    navigate("/task-form", { state: { selectedDate: day } });
-  };
+const handleEdit = (day) => {
+  // Fetch the day's data before navigation
+  dispatch(fetchDayData({ date: day, token }))
+    .unwrap()
+    .then(() => {
+      navigate("/task-form", { 
+        state: { 
+          selectedDate: day,
+          isEditing: true
+        }
+      });
+    })
+    .catch((error) => {
+      setNotification({
+        type: "error",
+        message: "Failed to fetch day data"
+      });
+    });
+};
 
   // Handle delete task
   const handleDelete = async (day) => {
