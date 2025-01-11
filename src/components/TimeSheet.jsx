@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchSheetData } from "../redux/viewsheetSlice";
-import { IoCalendarOutline, IoAlertCircleOutline, IoTrashOutline } from "react-icons/io5";
+import {
+  IoCalendarOutline,
+  IoAlertCircleOutline,
+  IoTrashOutline,
+} from "react-icons/io5";
 import Header from "./Header";
 import { useNavigate } from "react-router-dom";
 import { IoCreateOutline, IoSendOutline } from "react-icons/io5";
@@ -38,7 +42,11 @@ export const TimeSheet = ({ userRole }) => {
   // Filter tasks and calculate active hours (excluding rejected tasks)
   const filterTasks = (tasks) => {
     const today = new Date();
-    const lastMonthDate = new Date(today.getFullYear(), today.getMonth() - 1, 25);
+    const lastMonthDate = new Date(
+      today.getFullYear(),
+      today.getMonth() - 1,
+      25
+    );
     const startDate = lastMonthDate.toISOString().split("T")[0];
     const endDate = today.toISOString().split("T")[0];
 
@@ -56,9 +64,8 @@ export const TimeSheet = ({ userRole }) => {
   const rejectedTasks = sheetData.filter((task) => task.status === "Rejected");
 
   // Calculate total hours excluding rejected tasks
-  const totalActiveHours = sheetData
-    .filter(task => task.status !== "Rejected")
-    .length * 8;
+  const totalActiveHours =
+    sheetData.filter((task) => task.status !== "Rejected").length * 8;
 
   const handleSelectTask = (task) => {
     setSelectedTasks((prevSelected) => {
@@ -71,50 +78,35 @@ export const TimeSheet = ({ userRole }) => {
   };
 
   // Navigate to TaskForm with the selected date
-const handleEdit = (day) => {
-  // Fetch the day's data before navigation
-  dispatch(fetchDayData({ date: day, token }))
-    .unwrap()
-    .then(() => {
-      navigate("/task-form", { 
-        state: { 
-          selectedDate: day,
-          isEditing: true
-        }
-      });
-    })
-    .catch((error) => {
-      setNotification({
-        type: "error",
-        message: "Failed to fetch day data"
-      });
-    });
-};
+  const handleEdit = (day) => {
+    dispatch({ type: "viewsheet/setSelectedDate", payload: day });
+    navigate("/task-form", { state: { selectedDate: day } });
+  };
 
   // Handle delete task
   const handleDelete = async (day) => {
     try {
       const response = await fetch(`${API_URL}/api/tasks/${day}`, {
-        method: 'DELETE',
+        method: "DELETE",
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
       });
 
       if (response.ok) {
         setNotification({
           type: "success",
-          message: "Task deleted successfully!"
+          message: "Task deleted successfully!",
         });
         dispatch(fetchSheetData(token));
       } else {
-        throw new Error('Failed to delete task');
+        throw new Error("Failed to delete task");
       }
     } catch (error) {
       setNotification({
         type: "error",
-        message: "Failed to delete task"
+        message: "Failed to delete task",
       });
     }
   };
@@ -209,7 +201,9 @@ const handleEdit = (day) => {
               </p>
             </div>
             <div className="flex items-center">
-              <div className="text-4xl font-bold text-blue-500">{totalActiveHours}</div>
+              <div className="text-4xl font-bold text-blue-500">
+                {totalActiveHours}
+              </div>
               <div className="ml-2 text-gray-600 dark:text-gray-400">hrs</div>
             </div>
           </div>
@@ -250,9 +244,7 @@ const handleEdit = (day) => {
               <p>No submitted days in the selected date range</p>
             </div>
           ) : (
-            filteredTasks.map((task) => (
-              <TaskCard key={task.day} task={task} />
-            ))
+            filteredTasks.map((task) => <TaskCard key={task.day} task={task} />)
           )}
         </div>
 
@@ -272,9 +264,7 @@ const handleEdit = (day) => {
               <p>No rejected days</p>
             </div>
           ) : (
-            rejectedTasks.map((task) => (
-              <TaskCard key={task.day} task={task} />
-            ))
+            rejectedTasks.map((task) => <TaskCard key={task.day} task={task} />)
           )}
         </div>
 

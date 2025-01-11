@@ -11,32 +11,38 @@ import {
 } from "react-icons/io5";
 import { fetchProjects } from "../redux/projectsSlice";
 import { fetchTasks } from "../redux/tasksSlice";
-import { fetchDayTasks, saveDayTasks, clearCurrentDay } from '../redux/dayTasksSlice';
+import {
+  fetchDayTasks,
+  saveDayTasks,
+  clearCurrentDay,
+} from "../redux/dayTasksSlice";
 import Header from "./Header";
 
 export const TaskForm = ({ userRole }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   // Redux state
   const { projects } = useSelector((state) => state.projects);
   const { status: sheetStatus } = useSelector((state) => state.sheet);
   const currentDayTasks = useSelector((state) => state.dayTasks.tasks);
   const dayTasksStatus = useSelector((state) => state.dayTasks.status);
-  
+
   // Local state
-  const [tasksForm, setTasksForm] = useState(Array.from({ length: 8 }, () => ({
-    project: "",
-    task: "",
-    details: "",
-    taskOptions: []
-  })));
-  
+  const [tasksForm, setTasksForm] = useState(
+    Array.from({ length: 8 }, () => ({
+      project: "",
+      task: "",
+      details: "",
+      taskOptions: [],
+    }))
+  );
+
   const [date, setDate] = useState(
     location.state?.selectedDate || new Date().toISOString().slice(0, 10)
   );
-  
+
   const [projectTasksMap, setProjectTasksMap] = useState({});
   const [activeRow, setActiveRow] = useState(null);
   const [notification, setNotification] = useState(null);
@@ -45,11 +51,13 @@ export const TaskForm = ({ userRole }) => {
     project: "",
     task: "",
     details: "",
-    taskOptions: []
+    taskOptions: [],
   });
-
+  const [dayData, setDayData] = useState([]);
   const completionPercentage =
-    (tasksForm.filter((task) => task.project && task.task).length / tasksForm.length) * 100;
+    (tasksForm.filter((task) => task.project && task.task).length /
+      tasksForm.length) *
+    100;
 
   const allRowsComplete = tasksForm.every((task) => task.project && task.task);
 
@@ -58,24 +66,27 @@ export const TaskForm = ({ userRole }) => {
       setIsLoading(true);
       try {
         await dispatch(fetchProjects());
-        
+        const data = await dispatch(fetchDayTasks(date, "no data"));
+        setDayData(data.payload.tasks);
         if (location.state?.selectedDate) {
-          const result = await dispatch(fetchDayTasks(location.state.selectedDate)).unwrap();
+          const result = await dispatch(
+            fetchDayTasks(location.state.selectedDate)
+          ).unwrap();
           setTasksForm(result.tasks);
-          
+
           // Load task options for each project
           for (const task of result.tasks) {
             if (task.project) {
               const tasksAction = await dispatch(fetchTasks(task.project));
               if (tasksAction.payload) {
-                setProjectTasksMap(prev => ({
+                setProjectTasksMap((prev) => ({
                   ...prev,
-                  [task.project]: tasksAction.payload
+                  [task.project]: tasksAction.payload,
                 }));
-                
-                setTasksForm(prevTasks => 
-                  prevTasks.map(prevTask => 
-                    prevTask.project === task.project 
+
+                setTasksForm((prevTasks) =>
+                  prevTasks.map((prevTask) =>
+                    prevTask.project === task.project
                       ? { ...prevTask, taskOptions: tasksAction.payload }
                       : prevTask
                   )
@@ -87,16 +98,17 @@ export const TaskForm = ({ userRole }) => {
           // Check if day exists when adding new entry
           const response = await fetch(`${apii}api/Sheet/${date}`, {
             headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
             },
           });
-          
+
           if (response.ok) {
             const data = await response.json();
             if (data && data.data) {
               setNotification({
                 type: "error",
-                message: "This day already exists. You can edit it from the timesheet page."
+                message:
+                  "This day already exists. You can edit it from the timesheet page.",
               });
               setTimeout(() => {
                 navigate("/time-sheet");
@@ -109,7 +121,7 @@ export const TaskForm = ({ userRole }) => {
         console.error("Error in initializeForm:", error);
         setNotification({
           type: "error",
-          message: "Failed to load data. Please try again."
+          message: "Failed to load data. Please try again.",
         });
       } finally {
         setIsLoading(false);
@@ -117,7 +129,7 @@ export const TaskForm = ({ userRole }) => {
     };
 
     initializeForm();
-    
+
     // Cleanup when component unmounts
     return () => {
       dispatch(clearCurrentDay());
@@ -126,52 +138,52 @@ export const TaskForm = ({ userRole }) => {
 
   const handleBulkAssign = () => {
     if (bulkAssign.project && bulkAssign.task) {
-      setTasksForm(prevTasks => 
-        prevTasks.map(task => ({
+      setTasksForm((prevTasks) =>
+        prevTasks.map((task) => ({
           project: bulkAssign.project,
           task: bulkAssign.task,
           details: bulkAssign.details,
-          taskOptions: bulkAssign.taskOptions
+          taskOptions: bulkAssign.taskOptions,
         }))
       );
       setNotification({
         type: "success",
-        message: "Tasks bulk assigned successfully!"
+        message: "Tasks bulk assigned successfully!",
       });
     }
   };
 
   const handleBulkProjectChange = async (projectId) => {
-    setBulkAssign(prev => ({
+    setBulkAssign((prev) => ({
       ...prev,
       project: projectId,
       task: "",
-      taskOptions: []
+      taskOptions: [],
     }));
 
     if (projectId && !projectTasksMap[projectId]) {
       try {
         const action = await dispatch(fetchTasks(projectId));
         if (action.payload) {
-          setProjectTasksMap(prev => ({
+          setProjectTasksMap((prev) => ({
             ...prev,
-            [projectId]: action.payload
+            [projectId]: action.payload,
           }));
-          setBulkAssign(prev => ({
+          setBulkAssign((prev) => ({
             ...prev,
-            taskOptions: action.payload
+            taskOptions: action.payload,
           }));
         }
       } catch (error) {
         setNotification({
           type: "error",
-          message: "Failed to fetch tasks for selected project"
+          message: "Failed to fetch tasks for selected project",
         });
       }
     } else if (projectId) {
-      setBulkAssign(prev => ({
+      setBulkAssign((prev) => ({
         ...prev,
-        taskOptions: projectTasksMap[projectId]
+        taskOptions: projectTasksMap[projectId],
       }));
     }
   };
@@ -179,7 +191,9 @@ export const TaskForm = ({ userRole }) => {
   const handleProjectChange = async (index, projectId) => {
     setTasksForm((prevTasks) =>
       prevTasks.map((task, taskIndex) =>
-        taskIndex === index ? { ...task, project: projectId, task: "", taskOptions: [] } : task
+        taskIndex === index
+          ? { ...task, project: projectId, task: "", taskOptions: [] }
+          : task
       )
     );
 
@@ -193,14 +207,16 @@ export const TaskForm = ({ userRole }) => {
           }));
           setTasksForm((prevTasks) =>
             prevTasks.map((task, taskIndex) =>
-              taskIndex === index ? { ...task, taskOptions: action.payload } : task
+              taskIndex === index
+                ? { ...task, taskOptions: action.payload }
+                : task
             )
           );
         }
       } catch (error) {
         setNotification({
           type: "error",
-          message: "Failed to fetch tasks for selected project"
+          message: "Failed to fetch tasks for selected project",
         });
       }
     } else if (projectId) {
@@ -223,26 +239,29 @@ export const TaskForm = ({ userRole }) => {
   };
 
   const handleSaveDay = async () => {
+    console.log(tasksForm);
     try {
-      await dispatch(saveDayTasks({
-        date: date,
-        tasks: tasksForm
-      })).unwrap();
-      
+      await dispatch(
+        saveDayTasks({
+          date: date,
+          tasks: tasksForm,
+        })
+      ).unwrap();
+
       setNotification({
         type: "success",
-        message: location.state?.selectedDate 
-          ? "Day's tasks updated successfully!" 
-          : "Day's tasks saved successfully!"
+        message: location.state?.selectedDate
+          ? "Day's tasks updated successfully!"
+          : "Day's tasks saved successfully!",
       });
-      
+
       setTimeout(() => {
         navigate("/time-sheet");
       }, 1500);
     } catch (error) {
       setNotification({
         type: "error",
-        message: error.message || "Failed to save tasks"
+        message: error.message || "Failed to save tasks",
       });
     }
   };
@@ -282,7 +301,9 @@ export const TaskForm = ({ userRole }) => {
 
         <div className="mb-8 text-center">
           <h2 className="text-3xl font-bold text-gray-800 dark:text-gray-200 mb-3">
-            {location.state?.selectedDate ? "Edit Day's Tasks" : "Daily Task Registration"}
+            {location.state?.selectedDate
+              ? "Edit Day's Tasks"
+              : "Daily Task Registration"}
           </h2>
         </div>
 
@@ -315,7 +336,9 @@ export const TaskForm = ({ userRole }) => {
 
         {/* Bulk Assignment Section */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8">
-          <h3 className="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200">Bulk Assignment</h3>
+          <h3 className="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200">
+            Bulk Assignment
+          </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <select
               className="p-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-300"
@@ -329,11 +352,13 @@ export const TaskForm = ({ userRole }) => {
                 </option>
               ))}
             </select>
-            
+
             <select
               className="p-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-300"
               value={bulkAssign.task}
-              onChange={(e) => setBulkAssign(prev => ({ ...prev, task: e.target.value }))}
+              onChange={(e) =>
+                setBulkAssign((prev) => ({ ...prev, task: e.target.value }))
+              }
               disabled={!bulkAssign.project}
             >
               <option value="">Select Task</option>
@@ -343,16 +368,18 @@ export const TaskForm = ({ userRole }) => {
                 </option>
               ))}
             </select>
-            
+
             <input
               type="text"
               value={bulkAssign.details}
-              onChange={(e) => setBulkAssign(prev => ({ ...prev, details: e.target.value }))}
+              onChange={(e) =>
+                setBulkAssign((prev) => ({ ...prev, details: e.target.value }))
+              }
               className="p-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-300"
               placeholder="Enter details for all hours..."
             />
           </div>
-          
+
           <button
             onClick={handleBulkAssign}
             disabled={!bulkAssign.project || !bulkAssign.task}
@@ -367,16 +394,28 @@ export const TaskForm = ({ userRole }) => {
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8">
-          <h3 className="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200">Hourly Tasks</h3>
+          <h3 className="text-xl font-semibold mb-4 text-gray-800 dark:text-gray-200">
+            Hourly Tasks
+          </h3>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="bg-gray-50 dark:bg-gray-700">
-                  <th className="py-3 px-4 text-left text-gray-600 dark:text-gray-300">Hour</th>
-                  <th className="py-3 px-4 text-left text-gray-600 dark:text-gray-300">Project</th>
-                  <th className="py-3 px-4 text-left text-gray-600 dark:text-gray-300">Task</th>
-                  <th className="py-3 px-4 text-left text-gray-600 dark:text-gray-300">Details</th>
-                  <th className="py-3 px-4 text-left text-gray-600 dark:text-gray-300">Status</th>
+                  <th className="py-3 px-4 text-left text-gray-600 dark:text-gray-300">
+                    Hour
+                  </th>
+                  <th className="py-3 px-4 text-left text-gray-600 dark:text-gray-300">
+                    Project
+                  </th>
+                  <th className="py-3 px-4 text-left text-gray-600 dark:text-gray-300">
+                    Task
+                  </th>
+                  <th className="py-3 px-4 text-left text-gray-600 dark:text-gray-300">
+                    Details
+                  </th>
+                  <th className="py-3 px-4 text-left text-gray-600 dark:text-gray-300">
+                    Status
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -391,16 +430,24 @@ export const TaskForm = ({ userRole }) => {
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2">
                         <IoTimeOutline className="text-gray-400 dark:text-gray-500" />
-                        <span className="font-medium dark:text-gray-200">Hour {index + 1}</span>
+                        <span className="font-medium dark:text-gray-200">
+                          Hour {index + 1}
+                        </span>
                       </div>
                     </td>
                     <td className="py-3 px-4">
                       <select
                         className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-300"
                         value={task.project}
-                        onChange={(e) => handleProjectChange(index, e.target.value)}
+                        onChange={(e) =>
+                          handleProjectChange(index, e.target.value)
+                        }
                       >
-                        <option value="">Select Project</option>
+                        <option value="">
+                          {dayData[index].project
+                            ? dayData[index].project
+                            : "Select Project"}
+                        </option>
                         {projects.map((project) => (
                           <option key={project.id} value={project.id}>
                             {project.name}
@@ -412,10 +459,16 @@ export const TaskForm = ({ userRole }) => {
                       <select
                         className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-300"
                         value={task.task}
-                        onChange={(e) => handleChange(index, "task", e.target.value)}
+                        onChange={(e) =>
+                          handleChange(index, "task", e.target.value)
+                        }
                         disabled={!task.project}
                       >
-                        <option value="">Select Task</option>
+                        <option value="">
+                          {dayData[index].task
+                            ? dayData[index].task
+                            : "Select Task"}
+                        </option>
                         {task.taskOptions.map((option) => (
                           <option key={option.id} value={option.id}>
                             {option.name}
@@ -426,8 +479,14 @@ export const TaskForm = ({ userRole }) => {
                     <td className="py-3 px-4">
                       <input
                         type="text"
-                        value={task.details}
-                        onChange={(e) => handleChange(index, "details", e.target.value)}
+                        value={
+                          dayData[index].details
+                            ? dayData[index].details
+                            : task.details
+                        }
+                        onChange={(e) =>
+                          handleChange(index, "details", e.target.value)
+                        }
                         className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-300"
                         placeholder="Enter details..."
                       />
